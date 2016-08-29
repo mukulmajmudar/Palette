@@ -1,0 +1,45 @@
+/* Copied from http://stackoverflow.com/a/10550660/1196816 */
+.plt-grid
+{
+    text-align: justify;
+    -ms-text-justify: distribute-all-lines;
+    text-justify: distribute-all-lines;
+    font-size: 0;
+    position: relative;
+    margin-left: 0;
+}
+
+/* Copied from http://stackoverflow.com/a/10550660/1196816 */
+.plt-gridItem
+{
+    vertical-align: top;
+    display: inline-block;
+    *display: inline;
+    zoom: 1;
+    font-size: 13px;
+
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    box-shadow: 0px 0px 5px 0px #ccc;
+    margin-bottom: 10px;
+    min-height: 80px;
+}
+
+.plt-gridStretch
+{
+    width: 100%;
+    display: inline-block;
+    font-size: 0;
+    line-height: 0;
+}
+
+.plt-gridTitle
+{
+    padding-bottom: 10px;
+}
+
+.plt-gridNoItems
+{
+    font-size: 13px;
+    color: #aaa;
+}
