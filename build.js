@@ -17,8 +17,7 @@
 
     packages:
     [
-        {name: 'Palette/Grid', main: 'Grid'},
-        {name: 'Palette/Util', main: 'Util'}
+        {name: 'Palette/Grid', main: 'Grid'}
     ],
 
     preserveLicenseComments: false,

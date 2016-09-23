@@ -11,9 +11,8 @@ define(
     'Palette/Entity',
     'Palette/FastRequester',
     'Palette/Route',
-    'Palette/RouteExecutor',
     'Palette/Palette'
-], function(Entity, FastRequester, Route, RouteExecutor, Palette)
+], function(Entity, FastRequester, Route, Palette)
 {
     'use strict';
 
@@ -21,7 +20,6 @@ define(
     {
         Entity: Entity,
         FastRequester: FastRequester,
-        Route: Route,
-        RouteExecutor: RouteExecutor
+        Route: Route
     });
 });

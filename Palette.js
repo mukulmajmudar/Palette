@@ -391,47 +391,6 @@ define(
     return Route;
 });
 
-define('Palette/RouteExecutor',['backbone', 'jquery', 'Palette/Entity'], function(Backbone, $, Entity)
-{
-    'use strict';
-
-    var RouteExecutor = Entity.extend(
-    {
-        currentRoute: null,
-
-        makeCallable: function(route)
-        {
-            var _this = this;
-            var f = function()
-            {
-                var cleanupResult;
-                var args = $.makeArray(arguments);
-                if (_this.currentRoute !== null)
-                {
-                    cleanupResult = _this.currentRoute.cleanup( 
-                                    {
-                                        nextRoute: route
-                                    });
-                }
-                $.when(cleanupResult).done(function()
-                {
-                    var previousRoute = _this.currentRoute;
-                    _this.currentRoute = route;
-                    route.exec(
-                    {
-                        previousRoute: previousRoute,
-                        args: args
-                    });
-                });
-            };
-                                    
-            return f;
-        }
-    });
-
-    return RouteExecutor;
-});
-
 define(
 'Palette/Palette',[
     'underscore',
@@ -445,6 +404,7 @@ define(
     var Palette = Entity.extend(
     {
         observer: null,
+        currentRoute: null,
 
         constructor: function()
         {
@@ -1004,7 +964,7 @@ define(
             }
             if (count * interval >= timeout)
             {
-                return rejectedPromise();
+                return Promise.reject();
             }
 
             if (cond())
@@ -1106,6 +1066,40 @@ define(
             }, options.timeout);
 
             return d.promise();
+        },
+
+
+        /**
+         * Use to transform a Palette.Route instance into a callable to pass it
+         * to a Backbone router.
+         */
+        makeCallable: function(route)
+        {
+            var _this = this;
+            var f = function()
+            {
+                var cleanupResult;
+                var args = $.makeArray(arguments);
+                if (_this.currentRoute !== null)
+                {
+                    cleanupResult = _this.currentRoute.cleanup( 
+                                    {
+                                        nextRoute: route
+                                    });
+                }
+                $.when(cleanupResult).done(function()
+                {
+                    var previousRoute = _this.currentRoute;
+                    _this.currentRoute = route;
+                    route.exec(
+                    {
+                        previousRoute: previousRoute,
+                        args: args
+                    });
+                });
+            };
+                                    
+            return f;
         }
     });
 
@@ -1125,9 +1119,8 @@ define(
     'Palette/Entity',
     'Palette/FastRequester',
     'Palette/Route',
-    'Palette/RouteExecutor',
     'Palette/Palette'
-], function(Entity, FastRequester, Route, RouteExecutor, Palette)
+], function(Entity, FastRequester, Route, Palette)
 {
     'use strict';
 
@@ -1135,8 +1128,7 @@ define(
     {
         Entity: Entity,
         FastRequester: FastRequester,
-        Route: Route,
-        RouteExecutor: RouteExecutor
+        Route: Route
     });
 });
 
