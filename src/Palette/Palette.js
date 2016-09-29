@@ -11,7 +11,6 @@ define(
     var Palette = Entity.extend(
     {
         observer: null,
-        currentRoute: null,
 
         constructor: function()
         {
@@ -25,20 +24,30 @@ define(
                     // For each added node
                     _.each(mutation.addedNodes, function(node)
                     {
+                        var $node = $(node);
+
                         // Trigger "attached" event
-                        _.defer(function()
+                        $node.trigger('attached');
+
+                        // Trigger on each descendant
+                        $node.find('*').each(function()
                         {
-                            $(node).trigger('attached');
+                            $(this).trigger('attached');
                         });
                     });
 
                     // For each removed node
                     _.each(mutation.removedNodes, function(node)
                     {
+                        var $node = $(node);
+
                         // Trigger "detached" event
-                        _.defer(function()
+                        $node.trigger('detached');
+
+                        // Trigger on each descendant
+                        $node.find('*').each(function()
                         {
-                            $(node).trigger('detached');
+                            $(this).trigger('detached');
                         });
                     });
                 });
@@ -63,15 +72,22 @@ define(
                 // Manage attachment flag
                 view.$el
                     .off('attached.Palette')
-                    .on('attached.Palette', function()
+                    .on('attached.Palette', function(event)
                     {
-                        view.attached = true;
+                        if (event.target && event.target ===
+                            event.currentTarget)
+                        {
+                            view.attached = true;
+                        }
                     });
                 view.$el
                     .off('detached.Palette')
-                    .on('detached.Palette', function()
+                    .on('detached.Palette', function(event)
                     {
-                        view.attached = false;
+                        if (event.target && event.target === event.currentTarget)
+                        {
+                            view.attached = false;
+                        }
                     });
             }
             return view.attached;
@@ -86,6 +102,10 @@ define(
 
         setDefaults: function(view)
         {
+            var loadErrorHtml =
+                '<div class="alert alert-danger" role="alert">' +
+                    'There was an error loading this content.' +
+                '</div>';
             var viewDefaults =
             {
                 // Whether to show a loading spinner while rendering
@@ -94,7 +114,7 @@ define(
                 templates: {},
                 styleSheets: [],
                 staticData: {},
-                loadErrorMessage: 'There was an error loading this content.',
+                loadErrorHtml: loadErrorHtml,
                 templatesLoaded: false,
                 styleSheetsLoaded: false,
                 staticDataLoaded: false,
@@ -133,12 +153,10 @@ define(
                             return Promise.resolve();
                         }
 
-                        // Prepend requirejs baseUrl, if any
-                        if (view.context &&
-                            view.context.requireJsConfig &&
-                            view.context.requireJsConfig.baseUrl)
+                        // Prepend baseUrl, if any
+                        if (view.baseUrl)
                         {
-                            path = view.context.requireJsConfig.baseUrl + path;
+                            path = view.baseUrl + path;
                         }
                         return $.get(path).done(function(html)
                         {
@@ -153,7 +171,8 @@ define(
                 promises = promises.concat(
                     _.map(view.styleSheets, function(styleSheet)
                     {
-                        return _this.loadStyleSheet(styleSheet, view.context);
+                        return _this.loadStyleSheet(
+                            styleSheet, {baseUrl: view.baseUrl});
                     }));
             }
 
@@ -163,13 +182,10 @@ define(
                 promises = promises.concat(
                     _.map(view.staticData, function(url, key)
                     {
-                        // Prepend requirejs baseUrl, if any
-                        if (view.context &&
-                            view.context.requireJsConfig &&
-                            view.context.requireJsConfig.baseUrl)
+                        // Prepend baseUrl, if any
+                        if (view.baseUrl)
                         {
-                            url = view.context.requireJsConfig.baseUrl +
-                                '/' + url;
+                            url = view.baseUrl + '/' + url;
                         }
                         return $.ajax(
                         {
@@ -224,59 +240,96 @@ define(
         {
             var _this = this;
 
+            view.hidLoading = false;
+
             // If already showing a spinner, don't do anything
             if (view.$loadingSpinner)
             {
-                return;
-            }
-
-            // Make sure the view is attached
-            if (!_this.isAttached(view))
-            {
-                if (window.console && window.console.warn)
+                // If promise given, hide after promise is done
+                if (options && options.promise)
                 {
-                    window.console.warn(
-                        'View must be on the page for loading spinner.');
+                    return $.when(options.promise)
+                        .always(_this.hideLoading.bind(_this, view));
                 }
                 return;
             }
 
-            view.$loadingSpinner = $('<div class="plt-loadingSpinner"></div>');
-
-            if (options && options.id)
+            function doShowLoading()
             {
-                view.$loadingSpinner.attr('id', options.id);
+                // If hideLoading() was called before we got here, don't show
+                // the spinner at all
+                if (view.hidLoading)
+                {
+                    return;
+                }
+
+                view.$loadingSpinner = $('<div class="plt-loadingSpinner"></div>');
+
+                if (options && options.id)
+                {
+                    view.$loadingSpinner.attr('id', options.id);
+                }
+                else if (view.id)
+                {
+                    view.$loadingSpinner.attr(
+                        'id', view.id + '-loadingSpinner');
+                }
+
+                // Position on top of the view
+                var offset = view.$el.offset();
+                var width = _this.getActualWidth(view.$el);
+                var height = _this.getActualHeight(view.$el);
+                var top = offset.top + (height / 2 - 40);
+                var left = offset.left + (width / 2 - 40);
+                view.$loadingSpinner.css(
+                {
+                    top: top,
+                    left: left
+                });
+                $(document.body).append(view.$loadingSpinner);
+
+                // If promise given, hide after promise is done
+                if (options && options.promise)
+                {
+                    return $.when(options.promise)
+                        .always(_this.hideLoading.bind(_this, view));
+                }
             }
 
-            // Position on top of the view
-            var offset = view.$el.offset();
-            var width = _this.getActualWidth(view.$el);
-            var height = _this.getActualHeight(view.$el);
-            view.$loadingSpinner.css(
+            if (_this.isAttached(view))
             {
-                top: offset.top + (height / 2 - 40),
-                left: offset.left + (width / 2 - 40)
-            });
-            $(document.body).append(view.$loadingSpinner);
-
-            // If promise given, hide after promise is done
-            if (options && options.promise)
+                return doShowLoading();
+            }
+            else
             {
-                $.when(options.promise).then(
-                    _this.hideLoading.bind(_this, view),
-                    _this.hideLoading.bind(_this, view));
+                var d = new $.Deferred();
+                view.$el.one('attached', function()
+                {
+                    $.when(doShowLoading()).then(function()
+                    {
+                        d.resolve.apply(d, arguments);
+                    });
+                });
+                return d.promise();
             }
         },
 
 
         hideLoading: function(view)
         {
+            view.hidLoading = true;
             if (!view.$loadingSpinner)
             {
                 return;
             }
             view.$loadingSpinner.remove();
             view.$loadingSpinner = null;
+        },
+
+
+        showLoadError: function(view)
+        {
+            view.$el.empty().html(view.loadErrorHtml);
         },
 
 
@@ -491,12 +544,12 @@ define(
             $el.css('position', 'absolute');
 
             // Get dimensions of element and its parent
-            var elHeight = getActualHeight($el);
-            var elWidth = getActualWidth($el);
-            var parentHeight = getActualHeight($parent) - 
+            var elHeight = this.getActualHeight($el);
+            var elWidth = this.getActualWidth($el);
+            var parentHeight = this.getActualHeight($parent) - 
                 parseInt($parent.css('margin-top')) -
                 parseInt($parent.css('margin-bottom'));
-            var parentWidth = getActualWidth($parent) -
+            var parentWidth = this.getActualWidth($parent) -
                 parseInt($parent.css('margin-left')) -
                 parseInt($parent.css('margin-right'));
 
@@ -579,7 +632,7 @@ define(
                 return;
             }
             return this.setTimeout(this.waitForCondition.bind(
-                null, cond, interval, timeout, ++count), interval);
+                this, cond, interval, timeout, ++count), interval);
         },
 
 
@@ -591,10 +644,9 @@ define(
             var head = document.getElementsByTagName('head')[0];
 
             var href = styleSheet.href;
-            if (options && options.requireJsConfig &&
-               options.requireJsConfig.baseUrl)
+            if (options && options.baseUrl)
             {
-                href = options.requireJsConfig.baseUrl + href;
+                href = options.baseUrl + href;
             }
 
             // Create the link node
@@ -673,40 +725,6 @@ define(
             }, options.timeout);
 
             return d.promise();
-        },
-
-
-        /**
-         * Use to transform a Palette.Route instance into a callable to pass it
-         * to a Backbone router.
-         */
-        makeCallable: function(route)
-        {
-            var _this = this;
-            var f = function()
-            {
-                var cleanupResult;
-                var args = $.makeArray(arguments);
-                if (_this.currentRoute !== null)
-                {
-                    cleanupResult = _this.currentRoute.cleanup( 
-                                    {
-                                        nextRoute: route
-                                    });
-                }
-                $.when(cleanupResult).done(function()
-                {
-                    var previousRoute = _this.currentRoute;
-                    _this.currentRoute = route;
-                    route.exec(
-                    {
-                        previousRoute: previousRoute,
-                        args: args
-                    });
-                });
-            };
-                                    
-            return f;
         }
     });
 

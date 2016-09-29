@@ -64,145 +64,6 @@ define('Palette/Entity',['underscore'], function(_)
 });
 
 define(
-'Palette/FastRequester',[
-    'Palette/Entity',
-    'underscore',
-    'jquery'
-], function(Entity, _, $)
-{
-    'use strict';
-
-    var FastRequester = Entity.extend(
-    {
-        request: function(args, options)
-        {
-            options = _.extend(
-            {
-                httpRequestFn: $.ajax
-            }, options);
-
-            if (args.method &&
-                (args.method !== 'GET' || args.method === 'HEAD'))
-            {
-                throw new Error(
-                    'FastRequester only supports GET and HEAD requests');
-            }
-
-            if (!options.onError)
-            {
-                throw new Error('onError callback is required.');
-            }
-
-            var cachedEtag;
-
-            function makeActualRequest(cachedSuccess)
-            {
-                // Make actual request
-                args.headers = _.extend({}, args.headers,
-                        {'Cache-Control': 'no-cache'});
-                var cacheKey = new Date().getTime();
-                var origUrl = args.url;
-                if (args.url.indexOf('?') === -1)
-                {
-                    args.url += '?fr=1&ck=' + cacheKey;
-                }
-                else
-                {
-                    args.url += '&fr=1&ck=' + cacheKey;
-                }
-                options.httpRequestFn(args).then(
-                    function(response, textStatus, jqXHR)
-                    {
-                        // Mark this as the cached version
-                        window.localStorage.setItem(
-                            'FastRequester.cacheKey.' + origUrl,
-                            cacheKey);
-                        
-                        // If different than the cached version,
-                        // trigger the callback
-                        if (jqXHR.getResponseHeader('Etag') !== cachedEtag)
-                        {
-                            options.onSuccess(
-                                false, response, textStatus, jqXHR);
-                        }
-                    },
-                    function(jqXHR, textStatus, errorThrown)
-                    {
-                        options.onError(
-                            cachedSuccess, jqXHR, textStatus, errorThrown);
-                    });
-            }
-
-            if (options && options.actualOnly)
-            {
-                makeActualRequest(false);
-            }
-
-            // Make cache-only request.
-            // Most browser caches don't seem to honor max-stale
-            // or only-if-cached even though the RFC says they should :-(
-            // so we have to do this by conspiring with the API: we
-            // request with a URL argument "fr" (fast request) to receive the
-            // response with a long max-age.
-            var cacheArgs = _.clone(args);
-            var cacheKey = window.localStorage.getItem(
-                    'FastRequester.cacheKey.' + args.url);
-            if (!cacheKey)
-            {
-                cacheKey = new Date().getTime();
-            }
-            if (cacheArgs.url.indexOf('?') === -1)
-            {
-                cacheArgs.url += '?fr=1&ck=' + cacheKey;
-            }
-            else
-            {
-                cacheArgs.url += '&fr=1&ck=' + cacheKey;
-            }
-            options.httpRequestFn(cacheArgs).then(
-                function(response, textStatus, jqXHR)
-                {
-                    cachedEtag = jqXHR.getResponseHeader('Etag');
-
-                    // If response does not have "max-age" Cache-Control
-                    // header, this API does not support FastRequester.
-                    // So the assumed cached request is the actual
-                    // request
-                    var cacheControl = jqXHR.getResponseHeader(
-                        'Cache-Control');
-                    var fromCache = false;
-                    if (cacheControl &&
-                        cacheControl.indexOf('max-age') !== -1)
-                    {
-                        if (!options.cacheOnly)
-                        {
-                            makeActualRequest(true);
-                        }
-                        fromCache = true;
-                    }
-
-                    options.onSuccess(
-                        fromCache, response, textStatus, jqXHR);
-                },
-                function(jqXHR, textStatus, errorThrown)
-                {
-                    // If not found in cache, wait for actual request
-                    if (jqXHR.status === 504)
-                    {
-                        makeActualRequest(false);
-                    }
-
-                    // Forward the error back
-                    options.onError(
-                        false, jqXHR, textStatus, errorThrown);
-                });
-        }
-    });
-
-    return FastRequester;
-});
-
-define(
 'Palette/Route',[
     'underscore',
     'jquery',
@@ -229,12 +90,6 @@ define(
                     cls = cls.__super__.constructor;
                 }
                 this.classes.unshift(cls);
-            }
-
-            // If a context argument is provided, store it
-            if (args)
-            {
-                this.context = args.context;
             }
 
             // If route does not have its own clean() method, add an empty 
@@ -329,37 +184,31 @@ define(
             var nextRoute = args.nextRoute;
             var mostDerivedClass = _this.classes[args._length - 1];
 
-            // Call most-derived version of save method
-            return $.when(mostDerivedClass.prototype.save.call(
-                _this, mostDerivedClass))
-                .then(function()
-                {
-                    // (1) Next route is descendant of this class no need of 
-                    // cleanup both chaining and self
-                    if (nextRoute instanceof mostDerivedClass && !force)
-                    {
-                        return;
-                    }
+            // (1) Next route is descendant of this class no need of 
+            // cleanup both chaining and self
+            if (nextRoute instanceof mostDerivedClass && !force)
+            {
+                return;
+            }
 
-                    var parentOfMostDerived = _this.classes[args._length - 2];
-                    
-                    // Next route is not a sibling or not parent route 
-                    // then we need to chain the cleanup up
-                    if (!(nextRoute instanceof parentOfMostDerived) || force)
+            var parentOfMostDerived = _this.classes[args._length - 2];
+            
+            // Next route is not a sibling or not parent route 
+            // then we need to chain the cleanup up
+            if (!(nextRoute instanceof parentOfMostDerived) || force)
+            {
+                args._length -= 1;
+                return $.when(mostDerivedClass.prototype.clean.call(
+                    _this)).then(function()
                     {
-                        args._length -= 1;
-                        return $.when(mostDerivedClass.prototype.clean.call(
-                            _this)).then(function()
-                            {
-                                return parentOfMostDerived.prototype
-                                    .cleanup.call(_this, args);
-                            });
-                    }
-                    else
-                    {
-                        return mostDerivedClass.prototype.clean.call(_this);
-                    }
-                });
+                        return parentOfMostDerived.prototype
+                            .cleanup.call(_this, args);
+                    });
+            }
+            else
+            {
+                return mostDerivedClass.prototype.clean.call(_this);
+            }
         },
 
 
@@ -391,6 +240,41 @@ define(
     return Route;
 });
 
+define('Palette/Router',['backbone', 'jquery'], function(Backbone, $)
+{
+    'use strict';
+
+    var Router = Backbone.Router.extend(
+    {
+        currentRoute: null,
+
+        execute: function(route, args, name)
+        {
+            var _this = this;
+            var cleanupResult;
+            if (_this.currentRoute !== null)
+            {
+                cleanupResult = _this.currentRoute.cleanup(
+                {
+                    nextRoute: route
+                });
+            }
+            $.when(cleanupResult).done(function()
+            {
+                var previousRoute = _this.currentRoute;
+                _this.currentRoute = route;
+                route.exec(
+                {
+                    previousRoute: previousRoute,
+                    args: args
+                });
+            });
+        }
+    });
+
+    return Router;
+});
+
 define(
 'Palette/Palette',[
     'underscore',
@@ -404,7 +288,6 @@ define(
     var Palette = Entity.extend(
     {
         observer: null,
-        currentRoute: null,
 
         constructor: function()
         {
@@ -418,20 +301,30 @@ define(
                     // For each added node
                     _.each(mutation.addedNodes, function(node)
                     {
+                        var $node = $(node);
+
                         // Trigger "attached" event
-                        _.defer(function()
+                        $node.trigger('attached');
+
+                        // Trigger on each descendant
+                        $node.find('*').each(function()
                         {
-                            $(node).trigger('attached');
+                            $(this).trigger('attached');
                         });
                     });
 
                     // For each removed node
                     _.each(mutation.removedNodes, function(node)
                     {
+                        var $node = $(node);
+
                         // Trigger "detached" event
-                        _.defer(function()
+                        $node.trigger('detached');
+
+                        // Trigger on each descendant
+                        $node.find('*').each(function()
                         {
-                            $(node).trigger('detached');
+                            $(this).trigger('detached');
                         });
                     });
                 });
@@ -456,15 +349,22 @@ define(
                 // Manage attachment flag
                 view.$el
                     .off('attached.Palette')
-                    .on('attached.Palette', function()
+                    .on('attached.Palette', function(event)
                     {
-                        view.attached = true;
+                        if (event.target && event.target ===
+                            event.currentTarget)
+                        {
+                            view.attached = true;
+                        }
                     });
                 view.$el
                     .off('detached.Palette')
-                    .on('detached.Palette', function()
+                    .on('detached.Palette', function(event)
                     {
-                        view.attached = false;
+                        if (event.target && event.target === event.currentTarget)
+                        {
+                            view.attached = false;
+                        }
                     });
             }
             return view.attached;
@@ -479,6 +379,10 @@ define(
 
         setDefaults: function(view)
         {
+            var loadErrorHtml =
+                '<div class="alert alert-danger" role="alert">' +
+                    'There was an error loading this content.' +
+                '</div>';
             var viewDefaults =
             {
                 // Whether to show a loading spinner while rendering
@@ -487,7 +391,7 @@ define(
                 templates: {},
                 styleSheets: [],
                 staticData: {},
-                loadErrorMessage: 'There was an error loading this content.',
+                loadErrorHtml: loadErrorHtml,
                 templatesLoaded: false,
                 styleSheetsLoaded: false,
                 staticDataLoaded: false,
@@ -526,12 +430,10 @@ define(
                             return Promise.resolve();
                         }
 
-                        // Prepend requirejs baseUrl, if any
-                        if (view.context &&
-                            view.context.requireJsConfig &&
-                            view.context.requireJsConfig.baseUrl)
+                        // Prepend baseUrl, if any
+                        if (view.baseUrl)
                         {
-                            path = view.context.requireJsConfig.baseUrl + path;
+                            path = view.baseUrl + path;
                         }
                         return $.get(path).done(function(html)
                         {
@@ -546,7 +448,8 @@ define(
                 promises = promises.concat(
                     _.map(view.styleSheets, function(styleSheet)
                     {
-                        return _this.loadStyleSheet(styleSheet, view.context);
+                        return _this.loadStyleSheet(
+                            styleSheet, {baseUrl: view.baseUrl});
                     }));
             }
 
@@ -556,13 +459,10 @@ define(
                 promises = promises.concat(
                     _.map(view.staticData, function(url, key)
                     {
-                        // Prepend requirejs baseUrl, if any
-                        if (view.context &&
-                            view.context.requireJsConfig &&
-                            view.context.requireJsConfig.baseUrl)
+                        // Prepend baseUrl, if any
+                        if (view.baseUrl)
                         {
-                            url = view.context.requireJsConfig.baseUrl +
-                                '/' + url;
+                            url = view.baseUrl + '/' + url;
                         }
                         return $.ajax(
                         {
@@ -617,59 +517,96 @@ define(
         {
             var _this = this;
 
+            view.hidLoading = false;
+
             // If already showing a spinner, don't do anything
             if (view.$loadingSpinner)
             {
-                return;
-            }
-
-            // Make sure the view is attached
-            if (!_this.isAttached(view))
-            {
-                if (window.console && window.console.warn)
+                // If promise given, hide after promise is done
+                if (options && options.promise)
                 {
-                    window.console.warn(
-                        'View must be on the page for loading spinner.');
+                    return $.when(options.promise)
+                        .always(_this.hideLoading.bind(_this, view));
                 }
                 return;
             }
 
-            view.$loadingSpinner = $('<div class="plt-loadingSpinner"></div>');
-
-            if (options && options.id)
+            function doShowLoading()
             {
-                view.$loadingSpinner.attr('id', options.id);
+                // If hideLoading() was called before we got here, don't show
+                // the spinner at all
+                if (view.hidLoading)
+                {
+                    return;
+                }
+
+                view.$loadingSpinner = $('<div class="plt-loadingSpinner"></div>');
+
+                if (options && options.id)
+                {
+                    view.$loadingSpinner.attr('id', options.id);
+                }
+                else if (view.id)
+                {
+                    view.$loadingSpinner.attr(
+                        'id', view.id + '-loadingSpinner');
+                }
+
+                // Position on top of the view
+                var offset = view.$el.offset();
+                var width = _this.getActualWidth(view.$el);
+                var height = _this.getActualHeight(view.$el);
+                var top = offset.top + (height / 2 - 40);
+                var left = offset.left + (width / 2 - 40);
+                view.$loadingSpinner.css(
+                {
+                    top: top,
+                    left: left
+                });
+                $(document.body).append(view.$loadingSpinner);
+
+                // If promise given, hide after promise is done
+                if (options && options.promise)
+                {
+                    return $.when(options.promise)
+                        .always(_this.hideLoading.bind(_this, view));
+                }
             }
 
-            // Position on top of the view
-            var offset = view.$el.offset();
-            var width = _this.getActualWidth(view.$el);
-            var height = _this.getActualHeight(view.$el);
-            view.$loadingSpinner.css(
+            if (_this.isAttached(view))
             {
-                top: offset.top + (height / 2 - 40),
-                left: offset.left + (width / 2 - 40)
-            });
-            $(document.body).append(view.$loadingSpinner);
-
-            // If promise given, hide after promise is done
-            if (options && options.promise)
+                return doShowLoading();
+            }
+            else
             {
-                $.when(options.promise).then(
-                    _this.hideLoading.bind(_this, view),
-                    _this.hideLoading.bind(_this, view));
+                var d = new $.Deferred();
+                view.$el.one('attached', function()
+                {
+                    $.when(doShowLoading()).then(function()
+                    {
+                        d.resolve.apply(d, arguments);
+                    });
+                });
+                return d.promise();
             }
         },
 
 
         hideLoading: function(view)
         {
+            view.hidLoading = true;
             if (!view.$loadingSpinner)
             {
                 return;
             }
             view.$loadingSpinner.remove();
             view.$loadingSpinner = null;
+        },
+
+
+        showLoadError: function(view)
+        {
+            view.$el.empty().html(view.loadErrorHtml);
         },
 
 
@@ -884,12 +821,12 @@ define(
             $el.css('position', 'absolute');
 
             // Get dimensions of element and its parent
-            var elHeight = getActualHeight($el);
-            var elWidth = getActualWidth($el);
-            var parentHeight = getActualHeight($parent) - 
+            var elHeight = this.getActualHeight($el);
+            var elWidth = this.getActualWidth($el);
+            var parentHeight = this.getActualHeight($parent) - 
                 parseInt($parent.css('margin-top')) -
                 parseInt($parent.css('margin-bottom'));
-            var parentWidth = getActualWidth($parent) -
+            var parentWidth = this.getActualWidth($parent) -
                 parseInt($parent.css('margin-left')) -
                 parseInt($parent.css('margin-right'));
 
@@ -972,7 +909,7 @@ define(
                 return;
             }
             return this.setTimeout(this.waitForCondition.bind(
-                null, cond, interval, timeout, ++count), interval);
+                this, cond, interval, timeout, ++count), interval);
         },
 
 
@@ -984,10 +921,9 @@ define(
             var head = document.getElementsByTagName('head')[0];
 
             var href = styleSheet.href;
-            if (options && options.requireJsConfig &&
-               options.requireJsConfig.baseUrl)
+            if (options && options.baseUrl)
             {
-                href = options.requireJsConfig.baseUrl + href;
+                href = options.baseUrl + href;
             }
 
             // Create the link node
@@ -1066,45 +1002,464 @@ define(
             }, options.timeout);
 
             return d.promise();
-        },
-
-
-        /**
-         * Use to transform a Palette.Route instance into a callable to pass it
-         * to a Backbone router.
-         */
-        makeCallable: function(route)
-        {
-            var _this = this;
-            var f = function()
-            {
-                var cleanupResult;
-                var args = $.makeArray(arguments);
-                if (_this.currentRoute !== null)
-                {
-                    cleanupResult = _this.currentRoute.cleanup( 
-                                    {
-                                        nextRoute: route
-                                    });
-                }
-                $.when(cleanupResult).done(function()
-                {
-                    var previousRoute = _this.currentRoute;
-                    _this.currentRoute = route;
-                    route.exec(
-                    {
-                        previousRoute: previousRoute,
-                        args: args
-                    });
-                });
-            };
-                                    
-            return f;
         }
     });
 
     return new Palette();
 });
+
+define(
+'Palette/Grid/Grid',[
+    'backbone',
+    'Palette/Palette',
+    'jquery',
+    'mustache',
+    'underscore'
+], function(Backbone, Palette, $, Mustache, _)
+{
+    'use strict';
+
+    var defaultItemTemplate = 
+            '<div class="plt-gridItem">{{text}}</div>';
+
+    var defaultLayout = 
+        '<h4 class="plt-gridTitle">{{title}}</h4>' +
+        '<div class="plt-grid">' +
+            '{{#items}}' +
+                '{{> item }}' +
+            '{{/items}}' +
+            '{{^items}}' +
+                '<div class="plt-gridNoItems">' +
+                    '{{{emptyMessage}}}' +
+                '</div>' +
+            '{{/items}}' +
+            '<div class="plt-gridStretch"></div>' +
+        '</div>';
+
+    var Grid = Backbone.View.extend(
+    {
+        itemDimensions: null,
+        uri: null,
+        templateLambdas: null,
+        title: null,
+        emptyMessage: null,
+        showEmptyMessage: null,
+        maxSpacing: null,
+        minSpacing: null,
+
+        constructor: function(args)
+        {
+            args = _.extend(
+            {
+                title: '',
+                emptyMessage: 'No items',
+                showEmptyMessage: true,
+                maxSpacing: 30,
+                minSpacing: 5,
+                singleColBottomMargin: 10
+            }, args);
+
+            Backbone.View.call(this, args);
+            this.itemDimensions = args.itemDimensions;
+            this.uri = args.uri;
+            this.templateLambdas = args.templateLambdas;
+            this.title = args.title;
+            this.emptyMessage = args.emptyMessage;
+            this.showEmptyMessage = args.showEmptyMessage;
+            this.minSpacing = args.minSpacing;
+            this.maxSpacing = args.maxSpacing;
+            this.singleColBottomMargin = args.singleColBottomMargin;
+        },
+
+
+        render: function()
+        {
+            var _this = this;
+
+            if (_this.uri)
+            {
+                // TODO: Implement rendering from URI using paging
+                return;
+            }
+
+            // Otherwise assume setItems() will be called with
+            // all the data that will be shown in the grid; do nothing here
+        },
+
+
+        setItems: function(items)
+        {
+            var _this = this;
+            var $html = $(Mustache.render(defaultLayout,
+            _.extend(
+            {
+                title: _this.title,
+                items: items,
+                emptyMessage: _this.emptyMessage
+            }, _this.templateLambdas),
+            {
+                item: _this.templates.item ? _this.templates.item :
+                    defaultItemTemplate
+            }));
+
+            var $grid = $html.filter('.plt-grid');
+            if (_this.templates.firstItem)
+            {
+                $grid.prepend(_this.templates.firstItem);
+            }
+
+            if (!_this.showEmptyMessage)
+            {
+                $grid.find('.plt-gridNoItems').addClass('hidden');
+            }
+
+            var $children = $grid.children()
+                .not('.plt-gridStretch')
+                .not('.plt-gridNoItems');
+            $children.addClass('plt-gridItem');
+            if (_this.itemDimensions)
+            {
+                $children.css(_this.itemDimensions);
+            }
+
+            _this.$el.empty().append($html);
+
+            // Remove title element if empty
+            if (!_this.title)
+            {
+                _this.$('.plt-gridTitle').remove();
+            }
+            _this.$el.trigger('itemsSet');
+            if (Palette.isAttached(_this))
+            {
+                _this.adjustItems();
+            }
+            else
+            {
+                _this.$el.one('attached', _this.adjustItems.bind(_this));
+            }
+        },
+
+
+        adjustItems: function()
+        {
+            var _this = this;
+            var $grid = _this.$('.plt-grid');
+            $grid.find('.plt-gridSpace').remove();
+
+            if (_this.$('.plt-gridNoItems').length > 0)
+            {
+                return;
+            }
+
+            // Clear margins if any
+            $grid.css('margin', '');
+
+            // Reset title padding
+            _this.$('.plt-gridTitle').css('padding-bottom', '10px');
+
+            (function doAdjustGrid()
+            {
+                // Remove invisible items
+                _this.$('.plt-gridItem.invisible').remove();
+                _this.$('.plt-gridSpace').remove();
+
+                var elements = $grid.find('.plt-gridItem');
+                if (elements.length === 0)
+                {
+                    return;
+                }
+
+                // Clear grid width, if any
+                $grid.css('width', '');
+
+                // Reset element bottom margins
+                _.each(elements, function(el)
+                {
+                    $(el).css('margin-bottom', 0);
+                });
+
+                // Figure out row and column counts
+                var rowTop = $(elements[0]).position().top;
+                var row = 0;
+                var numColumns = 0;
+                _.each(elements, function(el)
+                {
+                    var elTop = $(el).position().top;
+                    if (elTop > rowTop)
+                    {
+                        ++row;
+                        rowTop = elTop;
+                    }
+                    else
+                    {
+                        // Count the number of columns in the grid
+                        if (row === 0)
+                        {
+                            ++numColumns;
+                        }
+                    }
+
+                    // Store row number of each element
+                    el.row = row;
+                });
+
+                var $el0, spacing, margin;
+
+                // If only one column, just add bottom margin
+                if (numColumns === 1)
+                {
+                    elements.css('margin-bottom', _this.singleColBottomMargin);
+                    return;
+                }
+
+                // If there is just one row, don't spread out the elements, just
+                // float them normally
+                if (row === 0)
+                {
+                    var gridWidth = $grid.width();
+                    var newWidth = elements.length *
+                        Palette.getActualWidth(elements[0]) + 10 *
+                        elements.length;
+                    if (newWidth < gridWidth)
+                    {
+                        $grid.css('width', newWidth);
+                    }
+
+                    if (elements.length < 2)
+                    {
+                        return;
+                    }
+
+                    // Figure out spacing between columns
+                    $el0 = $(elements[0]);
+                    spacing = $(elements[1]).position().left -
+                        ($el0.position().left + Palette.getActualWidth($el0));
+
+                    // If spacing is too large or too small, add margin to the
+                    // grid and adjust again
+                    if (spacing > _this.maxSpacing ||
+                        spacing < _this.minSpacing)
+                    {
+                        // Add margin to the grid
+                        margin = parseInt($grid.css('margin-left')) + 10;
+                        $grid.css('margin-left', margin);
+                        $grid.css('margin-right', margin);
+
+                        // Remove padding from section title
+                        _this.$('.plt-gridTitle').css('padding-bottom', 0);
+
+                        // Adjust grid again
+                        doAdjustGrid();
+
+                        return;
+                    }
+
+                    return;
+                }
+
+                // Add invisible boxes at the end of last row to maintain proper
+                // spacing
+                var numInvisible = (row + 1) * numColumns - elements.length;
+                if (numInvisible > 0)
+                {
+                    var $stretch = $grid.find('.plt-gridStretch');
+                    _.each(_.range(numInvisible), function()
+                    {
+                        // The "span" element is needed because we are
+                        // unfortunately dependent on white space for rendering
+                        // with CSS display: inline-block
+                        $('<div class="invisible plt-gridItem"></div><span ' +
+                            'class="plt-gridSpace">&nbsp;</span>')
+                            .insertBefore($stretch);
+
+                        if (_this.itemDimensions)
+                        {
+                            $grid.find('.invisible').css(_this.itemDimensions);
+                        }
+                    });
+                }
+
+                //
+                // There is more than 1 row, so adjust bottom margin to match
+                // spacing between columns
+                //
+
+                // Figure out spacing between columns
+                $el0 = $(elements[0]);
+                spacing = $(elements[1]).position().left -
+                    ($el0.position().left + Palette.getActualWidth($el0));
+
+                // If spacing is too large or too small, add margin to the grid
+                // and
+                // adjust again
+                if (spacing > 0 && (spacing > _this.maxSpacing || spacing <
+                                    _this.minSpacing))
+                {
+                    // Add margin to the grid
+                    margin = parseInt($grid.css('margin-left')) + 10;
+                    $grid.css('margin-left', margin);
+                    $grid.css('margin-right', margin);
+
+                    // Remove padding from section title
+                    _this.$('.plt-gridTitle').css('padding-bottom', 0);
+
+                    // Adjust grid again
+                    doAdjustGrid();
+
+                    return;
+                }
+
+                // Adjust bottom margin for each element to match column spacing
+                _.each(elements, function(el)
+                {
+                    if (el.row === row)
+                    {
+                        $(el).css('margin-bottom', 0);
+                    }
+                    else
+                    {
+                        $(el).css('margin-bottom', spacing);
+                    }
+                });
+
+                // Set grid vertical margins
+                $grid.css('margin-top', spacing / 2);
+                $grid.css('margin-bottom', spacing);
+                _this.$el.trigger('gridMarginsChanged', {grid: _this});
+
+                // Remove padding from section title
+                _this.$('.plt-gridTitle').css('padding-bottom', 0);
+
+                // Re-adjust the grid if it is resized
+                // $grid.off('resize').on('resize', doAdjustGrid);
+            })();
+
+            // Adjust for variable heights
+            _.defer(_this.adjustForVarHeights.bind(_this));
+        },
+
+
+        adjustForVarHeights: function()
+        {
+            var _this = this;
+            var $items = _this.$('.plt-gridItem');
+
+            // Assemble 2D array of items; coordinate = (row, column)
+            var items2D = [];
+            var rowTop = $($items[0]).position().top;
+            var row = 0;
+            _.each($items, function(el)
+            {
+                var $el = $(el);
+
+                // Reset top value
+                $el.css('top', 0);
+
+                var elTop = $el.position().top;
+                if (elTop > rowTop)
+                {
+                    ++row;
+                    rowTop = elTop;
+                }
+
+                // Add row if necessary
+                if (items2D.length < row + 1)
+                {
+                    items2D.push([]);
+                }
+
+                items2D[row].push(el);
+            });
+
+            var numRows = items2D.length;
+            // var numCols = numRows > 0 ? items2D[0].length : 0;
+
+            _.each(items2D, function(row, i)
+            {
+                // Skip last row
+                if (i === numRows - 1)
+                {
+                    return;
+                }
+
+                // Check each column's spacing with its neighbor below it
+                _.each(row, function(item, j)
+                {
+                    var $item = $(item);
+                    var $neighborBelow = $(items2D[i + 1][j]);
+                    if ($neighborBelow.length === 0)
+                    {
+                        return;
+                    }
+                    var vertSpacing = $neighborBelow.position().top -
+                        ($item.position().top + Palette.getActualHeight($item));
+
+                    // Move neighbor up
+                    if (vertSpacing > 0)
+                    {
+                        $neighborBelow.css(
+                        {
+                            position: 'relative',
+                            top: -1 * vertSpacing
+                        });
+                    }
+                });
+            });
+
+            // Find first spacing item
+            var $spacingItems = _this.$('.plt-gridItem.invisible');
+            if ($spacingItems.length === 0)
+            {
+                return;
+            }
+            var $firstSpaceItem = $($spacingItems[0]);
+            var firstSpaceTop = $firstSpaceItem.position().top;
+
+            // If the first space is higher than any item, that item
+            // needs a spacing item before it
+            var spaceInserted = false;
+            var $nonSpaceItems = $items.not('.invisible');
+            _.each($nonSpaceItems, function(item)
+            {
+                if (spaceInserted)
+                {
+                    return;
+                }
+                var $item = $(item);
+                if (firstSpaceTop < $item.position().top)
+                {
+                    $('<div class="invisible plt-gridItem"></div><span ' +
+                        'class="plt-gridSpace">&nbsp;</span>')
+                        .insertBefore($item);
+                    spaceInserted = true;
+                }
+            });
+
+            if (spaceInserted)
+            {
+                _this.adjustForVarHeights();
+            }
+
+            // Find actual height of the grid
+            var height = _.chain($nonSpaceItems)
+                .map(function(item)
+                {
+                    var $item = $(item);
+                    return $item.position().top + Palette.getActualHeight($item);
+                })
+                .max();
+
+            // Set height manually because spaces and adjustments add a lot of
+            // padding
+            _this.$('.plt-grid').css('height', height);
+        }
+    });
+
+    return Grid;
+});
+
+define('Palette/Grid', ['Palette/Grid/Grid'], function (main) { return main; });
 
 /**
  * @license Copyright 2016 Mukul Majmudar
@@ -1117,18 +1472,20 @@ define(
 define(
 'Palette',[
     'Palette/Entity',
-    'Palette/FastRequester',
     'Palette/Route',
-    'Palette/Palette'
-], function(Entity, FastRequester, Route, Palette)
+    'Palette/Router',
+    'Palette/Palette',
+    'Palette/Grid'
+], function(Entity, Route, Router, Palette, Grid)
 {
     'use strict';
 
     return _.extend(Palette,
     {
         Entity: Entity,
-        FastRequester: FastRequester,
-        Route: Route
+        Route: Route,
+        Router: Router,
+        Grid: Grid
     });
 });
 

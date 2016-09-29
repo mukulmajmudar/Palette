@@ -62,14 +62,13 @@ define(
         },
 
 
-        create: function()
+        render: function()
         {
             var _this = this;
 
             if (_this.uri)
             {
-                // TODO: Implement rendering from URI using fast requester and
-                // paging
+                // TODO: Implement rendering from URI using paging
                 return;
             }
 
@@ -121,7 +120,14 @@ define(
                 _this.$('.plt-gridTitle').remove();
             }
             _this.$el.trigger('itemsSet');
-            _this.whenShown().done(_this.adjustItems.bind(_this));
+            if (Palette.isAttached(_this))
+            {
+                _this.adjustItems();
+            }
+            else
+            {
+                _this.$el.one('attached', _this.adjustItems.bind(_this));
+            }
         },
 
 

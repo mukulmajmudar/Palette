@@ -9,17 +9,19 @@
 define(
 [
     'Palette/Entity',
-    'Palette/FastRequester',
     'Palette/Route',
-    'Palette/Palette'
-], function(Entity, FastRequester, Route, Palette)
+    'Palette/Router',
+    'Palette/Palette',
+    'Palette/Grid'
+], function(Entity, Route, Router, Palette, Grid)
 {
     'use strict';
 
     return _.extend(Palette,
     {
         Entity: Entity,
-        FastRequester: FastRequester,
-        Route: Route
+        Route: Route,
+        Router: Router,
+        Grid: Grid
     });
 });

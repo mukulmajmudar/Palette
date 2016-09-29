@@ -27,12 +27,6 @@ define(
                 this.classes.unshift(cls);
             }
 
-            // If a context argument is provided, store it
-            if (args)
-            {
-                this.context = args.context;
-            }
-
             // If route does not have its own clean() method, add an empty 
             // method to prevent unintended inherited cleanup
             if (!this.constructor.prototype.clean || 
@@ -125,37 +119,31 @@ define(
             var nextRoute = args.nextRoute;
             var mostDerivedClass = _this.classes[args._length - 1];
 
-            // Call most-derived version of save method
-            return $.when(mostDerivedClass.prototype.save.call(
-                _this, mostDerivedClass))
-                .then(function()
-                {
-                    // (1) Next route is descendant of this class no need of 
-                    // cleanup both chaining and self
-                    if (nextRoute instanceof mostDerivedClass && !force)
-                    {
-                        return;
-                    }
+            // (1) Next route is descendant of this class no need of 
+            // cleanup both chaining and self
+            if (nextRoute instanceof mostDerivedClass && !force)
+            {
+                return;
+            }
 
-                    var parentOfMostDerived = _this.classes[args._length - 2];
-                    
-                    // Next route is not a sibling or not parent route 
-                    // then we need to chain the cleanup up
-                    if (!(nextRoute instanceof parentOfMostDerived) || force)
+            var parentOfMostDerived = _this.classes[args._length - 2];
+            
+            // Next route is not a sibling or not parent route 
+            // then we need to chain the cleanup up
+            if (!(nextRoute instanceof parentOfMostDerived) || force)
+            {
+                args._length -= 1;
+                return $.when(mostDerivedClass.prototype.clean.call(
+                    _this)).then(function()
                     {
-                        args._length -= 1;
-                        return $.when(mostDerivedClass.prototype.clean.call(
-                            _this)).then(function()
-                            {
-                                return parentOfMostDerived.prototype
-                                    .cleanup.call(_this, args);
-                            });
-                    }
-                    else
-                    {
-                        return mostDerivedClass.prototype.clean.call(_this);
-                    }
-                });
+                        return parentOfMostDerived.prototype
+                            .cleanup.call(_this, args);
+                    });
+            }
+            else
+            {
+                return mostDerivedClass.prototype.clean.call(_this);
+            }
         },
 
 

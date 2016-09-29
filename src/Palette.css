@@ -23,11 +23,12 @@
     border: 10px solid #ddd;
     border-top: 10px solid #777;
     border-radius: 50%;
-    width: 60px;
-    height: 60px;
+    width: 70px;
+    height: 70px;
     -webkit-animation: spin 1.5s linear infinite;
     animation: spin 1.5s linear infinite;
-    z-index: 1056;
+    z-index: 10000;
+    box-sizing: border-box;
 }
 
 @-webkit-keyframes spin
