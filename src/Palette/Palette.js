@@ -24,30 +24,36 @@ define(
                     // For each added node
                     _.each(mutation.addedNodes, function(node)
                     {
-                        var $node = $(node);
-
-                        // Trigger "attached" event
-                        $node.trigger('attached');
-
-                        // Trigger on each descendant
-                        $node.find('*').each(function()
+                        _.defer(function()
                         {
-                            $(this).trigger('attached');
+                            var $node = $(node);
+
+                            // Trigger "attached" event
+                            $node.trigger('attached');
+
+                            // Trigger on each descendant
+                            $node.find('*').each(function()
+                            {
+                                $(this).trigger('attached');
+                            });
                         });
                     });
 
                     // For each removed node
                     _.each(mutation.removedNodes, function(node)
                     {
-                        var $node = $(node);
-
-                        // Trigger "detached" event
-                        $node.trigger('detached');
-
-                        // Trigger on each descendant
-                        $node.find('*').each(function()
+                        _.defer(function()
                         {
-                            $(this).trigger('detached');
+                            var $node = $(node);
+
+                            // Trigger "detached" event
+                            $node.trigger('detached');
+
+                            // Trigger on each descendant
+                            $node.find('*').each(function()
+                            {
+                                $(this).trigger('detached');
+                            });
                         });
                     });
                 });
@@ -100,6 +106,42 @@ define(
         },
 
 
+        whenRendered: function(view, fn)
+        {
+            if (this.isRendered(view))
+            {
+                fn();
+            }
+            else
+            {
+                view.$el.one('rendered', fn);
+            }
+        },
+
+
+        whenAttached: function(view, fn)
+        {
+            if (this.isAttached(view))
+            {
+                fn();
+            }
+            else
+            {
+                view.$el.one('attached', fn);
+            }
+        },
+
+
+        whenShown: function(view, fn)
+        {
+            var _this = this;
+            _this.whenRendered(view, function()
+            {
+                _this.whenAttached(view, fn);
+            });
+        },
+
+
         setDefaults: function(view)
         {
             var loadErrorHtml =
@@ -120,7 +162,8 @@ define(
                 staticDataLoaded: false,
                 rendered: false,
                 attached: this.isAttached(view),
-                $loadingSpinner: null
+                $loadingSpinner: null,
+                loadingSpinnerCount: 0
             };
 
             for (var key in viewDefaults)
@@ -145,8 +188,13 @@ define(
             // Load templates
             if (!view.templatesLoaded)
             {
+                var templatePaths = view.templates;
+
+                // Create view's own property
+                view.templates = {};
+
                 promises = promises.concat(
-                    _.map(view.templates, function(path, key)
+                    _.map(templatePaths, function(path, key)
                     {
                         if (!path)
                         {
@@ -179,8 +227,13 @@ define(
             // Load static data
             if (!view.staticDataLoaded)
             {
+                var staticDataPaths = view.staticData;
+
+                // Create view's own property
+                view.staticData = {};
+
                 promises = promises.concat(
-                    _.map(view.staticData, function(url, key)
+                    _.map(staticDataPaths, function(url, key)
                     {
                         // Prepend baseUrl, if any
                         if (view.baseUrl)
@@ -218,6 +271,12 @@ define(
                 }
             }
 
+            // If onShown method declared, bind to whenShown
+            if (_.isFunction(view.onShown))
+            {
+                _this.whenShown(view, view.onShown.bind(view));
+            }
+
             // Wait till all templates, style sheets, and static data is loaded
             return $.when.apply(null, promises)
                 .then(function()
@@ -240,32 +299,42 @@ define(
         {
             var _this = this;
 
+            if (!options)
+            {
+                options = {};
+            }
+
             view.hidLoading = false;
 
-            // If already showing a spinner, don't do anything
-            if (view.$loadingSpinner)
-            {
-                // If promise given, hide after promise is done
-                if (options && options.promise)
-                {
-                    return $.when(options.promise)
-                        .always(_this.hideLoading.bind(_this, view));
-                }
-                return;
-            }
+            ++view.loadingSpinnerCount;
 
             function doShowLoading()
             {
+                // If already showing a spinner, don't do anything
+                if (view.$loadingSpinner)
+                {
+                    // If promise given return it
+                    if (options.promise)
+                    {
+                        return $.when(options.promise);
+                    }
+                    return;
+                }
+
                 // If hideLoading() was called before we got here, don't show
                 // the spinner at all
                 if (view.hidLoading)
                 {
+                    if (options.promise)
+                    {
+                        return $.when(options.promise);
+                    }
                     return;
                 }
 
                 view.$loadingSpinner = $('<div class="plt-loadingSpinner"></div>');
 
-                if (options && options.id)
+                if (options.id)
                 {
                     view.$loadingSpinner.attr('id', options.id);
                 }
@@ -277,23 +346,26 @@ define(
 
                 // Position on top of the view
                 var offset = view.$el.offset();
+                offset.left -= parseInt(view.$el.css('margin-left'));
+                offset.top -= parseInt(view.$el.css('margin-top'));
                 var width = _this.getActualWidth(view.$el);
                 var height = _this.getActualHeight(view.$el);
-                var top = offset.top + (height / 2 - 40);
-                var left = offset.left + (width / 2 - 40);
+                var top = offset.top + (height / 2 - 35);
+                var left = offset.left + (width / 2 - 35);
                 view.$loadingSpinner.css(
                 {
                     top: top,
                     left: left
                 });
                 $(document.body).append(view.$loadingSpinner);
+                return $.when(options.promise);
+            }
 
-                // If promise given, hide after promise is done
-                if (options && options.promise)
-                {
-                    return $.when(options.promise)
-                        .always(_this.hideLoading.bind(_this, view));
-                }
+            // If promise given, hide after promise is done
+            if (options.promise)
+            {
+                $.when(options.promise)
+                    .always(_this.hideLoading.bind(_this, view));
             }
 
             if (_this.isAttached(view))
@@ -303,7 +375,7 @@ define(
             else
             {
                 var d = new $.Deferred();
-                view.$el.one('attached', function()
+                view.$el.one('attached.PaletteShowLoading', function()
                 {
                     $.when(doShowLoading()).then(function()
                     {
@@ -318,6 +390,17 @@ define(
         hideLoading: function(view)
         {
             view.hidLoading = true;
+
+            // Decrement count
+            --view.loadingSpinnerCount;
+
+            // If more requests to show loading spinner still ongoing
+            // don't hide
+            if (view.loadingSpinnerCount > 0)
+            {
+                return;
+            }
+
             if (!view.$loadingSpinner)
             {
                 return;

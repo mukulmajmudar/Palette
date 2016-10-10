@@ -31,34 +31,17 @@ define(
         itemDimensions: null,
         uri: null,
         templateLambdas: null,
-        title: null,
-        emptyMessage: null,
-        showEmptyMessage: null,
-        maxSpacing: null,
-        minSpacing: null,
+        title: '',
+        emptyMessage: 'No items',
+        showEmptyMessage: true,
+        maxSpacing: 30,
+        minSpacing: 5,
+        singleColBottomMargin: 10,
 
-        constructor: function(args)
+        initialize: function(args)
         {
-            args = _.extend(
-            {
-                title: '',
-                emptyMessage: 'No items',
-                showEmptyMessage: true,
-                maxSpacing: 30,
-                minSpacing: 5,
-                singleColBottomMargin: 10
-            }, args);
-
-            Backbone.View.call(this, args);
-            this.itemDimensions = args.itemDimensions;
-            this.uri = args.uri;
-            this.templateLambdas = args.templateLambdas;
-            this.title = args.title;
-            this.emptyMessage = args.emptyMessage;
-            this.showEmptyMessage = args.showEmptyMessage;
-            this.minSpacing = args.minSpacing;
-            this.maxSpacing = args.maxSpacing;
-            this.singleColBottomMargin = args.singleColBottomMargin;
+            // Override properties
+            _.extend(this, args);
         },
 
 
@@ -120,14 +103,9 @@ define(
                 _this.$('.plt-gridTitle').remove();
             }
             _this.$el.trigger('itemsSet');
-            if (Palette.isAttached(_this))
-            {
-                _this.adjustItems();
-            }
-            else
-            {
-                _this.$el.one('attached', _this.adjustItems.bind(_this));
-            }
+
+            // Adjust items
+            Palette.whenShown(_this, _this.adjustItems.bind(_this));
         },
 
 
