@@ -288,7 +288,10 @@ define(
                     return $.when(view.render()).then(function()
                     {
                         view.rendered = true;
-                        _this.hideLoading(view);
+                        if (view.showRenderSpinner)
+                        {
+                            _this.hideLoading(view);
+                        }
                         view.$el.trigger('rendered');
                     });
                 });

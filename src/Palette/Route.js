@@ -56,14 +56,14 @@ define(
             {
                 return;
             }
-            var force = args.force === true;
-
             var previousRoute = args.previousRoute;
             var mostDerivedClass = _this.classes[args._length - 1];
+            var isSameRoute = previousRoute ?
+                previousRoute.constructor === mostDerivedClass : false;
 
             // (1) Previous route is descendant of this class no need of exec
             // both chaining and self.
-            if (previousRoute instanceof mostDerivedClass && !force)
+            if (previousRoute instanceof mostDerivedClass && !isSameRoute)
             {
                 return;
             }
@@ -72,7 +72,7 @@ define(
 
             // Previous route is not a sibling or not a parent
             // then we need to chain the exec call.
-            if (!(previousRoute instanceof parentOfMostDerived) || force)
+            if (!(previousRoute instanceof parentOfMostDerived))
             {
                 args._length -= 1;
                 return $.when(parentOfMostDerived.prototype.exec.call(
