@@ -44,15 +44,27 @@ define(
                     {
                         _.defer(function()
                         {
-                            var $node = $(node);
-
-                            // Trigger "detached" event
-                            $node.trigger('detached');
+                            // Call view destroy method if exists
+                            if (node.view)
+                            {
+                                if (node.view.destroy)
+                                {
+                                    node.view.destroy();
+                                }
+                                delete node.view;
+                            }
 
                             // Trigger on each descendant
-                            $node.find('*').each(function()
+                            $(node).find('*').each(function()
                             {
-                                $(this).trigger('detached');
+                                if (this.view)
+                                {
+                                    if (this.view.destroy)
+                                    {
+                                        this.view.destroy();
+                                    }
+                                    delete this.view;
+                                }
                             });
                         });
                     });
@@ -160,8 +172,6 @@ define(
                 templatesLoaded: false,
                 styleSheetsLoaded: false,
                 staticDataLoaded: false,
-                rendered: false,
-                attached: this.isAttached(view),
                 $loadingSpinner: null,
                 loadingSpinnerCount: 0
             };
@@ -180,8 +190,26 @@ define(
         {
             var _this = this;
 
-            // Set default renderer-related arguments on the view
+            // Set default render-related arguments on the view
             _this.setDefaults(view);
+            
+            view.rendered = false;
+            view.attached = this.isAttached(view);
+            view.el.view = view;
+
+            var customDestroy;
+            if (view.destroy)
+            {
+                customDestroy = view.destroy.bind(view);
+            }
+            view.destroy = function()
+            {
+                view.stopListening();
+                if (customDestroy)
+                {
+                    customDestroy();
+                }
+            }
 
             var promises = [];
 

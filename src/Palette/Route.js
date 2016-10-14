@@ -142,7 +142,7 @@ define(
             }
             else
             {
-                return mostDerivedClass.prototype.clean.call(_this);
+                return mostDerivedClass.prototype.clean.call(_this, args);
             }
         },
 
