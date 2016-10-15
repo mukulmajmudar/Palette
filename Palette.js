@@ -362,7 +362,7 @@ define(
             // from an element on the page before mutation observer was started)
             if (view.attached === undefined)
             {
-                view.attached = $.contains(document.body, view.el);
+                view.attached = $.contains(document, view.el);
 
                 // Manage attachment flag
                 view.$el
@@ -445,6 +445,7 @@ define(
                 templates: {},
                 styleSheets: [],
                 staticData: {},
+                loadErrorText: null,
                 loadErrorHtml: loadErrorHtml,
                 templatesLoaded: false,
                 styleSheetsLoaded: false,
@@ -472,6 +473,7 @@ define(
             
             view.rendered = false;
             view.attached = this.isAttached(view);
+            view.loadError = false;
             view.el.view = view;
 
             var customDestroy;
@@ -598,6 +600,13 @@ define(
                             _this.hideLoading(view);
                         }
                         view.$el.trigger('rendered');
+                    }, function()
+                    {
+                        if (view.showRenderSpinner)
+                        {
+                            _this.hideLoading(view);
+                        }
+                        _this.showLoadError(view);
                     });
                 });
         },
@@ -606,6 +615,12 @@ define(
         showLoading: function(view, options)
         {
             var _this = this;
+
+            // Don't show loading spinner on erroneous views
+            if (view.loadError)
+            {
+                return;
+            }
 
             if (!options)
             {
@@ -720,7 +735,23 @@ define(
 
         showLoadError: function(view)
         {
-            view.$el.empty().html(view.loadErrorHtml);
+            this.hideLoading(view);
+            if (view.showLoadError)
+            {
+                view.showLoadError();
+            }
+            else if (view.loadErrorText)
+            {
+                view.$el.empty().html(
+                '<div class="alert alert-danger" role="alert">' +
+                    view.loadErrorText +
+                '</div>');
+            }
+            else
+            {
+                view.$el.empty().html(view.loadErrorHtml);
+            }
+            view.loadError = true;
         },
 
 
