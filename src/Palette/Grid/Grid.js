@@ -123,8 +123,8 @@ define(
             // Clear margins if any
             $grid.css('margin', '');
 
-            // Reset title padding
-            _this.$('.plt-gridTitle').css('padding-bottom', '10px');
+            // Reset title margin
+            _this.$('.plt-gridTitle').css('margin-bottom', '10px');
 
             (function doAdjustGrid()
             {
@@ -214,8 +214,8 @@ define(
                         $grid.css('margin-left', margin);
                         $grid.css('margin-right', margin);
 
-                        // Remove padding from section title
-                        _this.$('.plt-gridTitle').css('padding-bottom', 0);
+                        // Remove margin from section title
+                        _this.$('.plt-gridTitle').css('margin-bottom', 0);
 
                         // Adjust grid again
                         doAdjustGrid();
@@ -269,8 +269,8 @@ define(
                     $grid.css('margin-left', margin);
                     $grid.css('margin-right', margin);
 
-                    // Remove padding from section title
-                    _this.$('.plt-gridTitle').css('padding-bottom', 0);
+                    // Remove margin from section title
+                    _this.$('.plt-gridTitle').css('margin-bottom', 0);
 
                     // Adjust grid again
                     doAdjustGrid();
@@ -296,8 +296,8 @@ define(
                 $grid.css('margin-bottom', spacing);
                 _this.$el.trigger('gridMarginsChanged', {grid: _this});
 
-                // Remove padding from section title
-                _this.$('.plt-gridTitle').css('padding-bottom', 0);
+                // Remove margin from section title
+                _this.$('.plt-gridTitle').css('margin-bottom', 0);
 
                 // Re-adjust the grid if it is resized
                 // $grid.off('resize').on('resize', doAdjustGrid);
