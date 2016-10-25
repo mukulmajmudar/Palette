@@ -98,15 +98,6 @@ define(
                             view.attached = true;
                         }
                     });
-                view.$el
-                    .off('detached.Palette')
-                    .on('detached.Palette', function(event)
-                    {
-                        if (event.target && event.target === event.currentTarget)
-                        {
-                            view.attached = false;
-                        }
-                    });
             }
             return view.attached;
         },
@@ -207,6 +198,7 @@ define(
             view.destroy = function()
             {
                 view.stopListening();
+                view.attached = false;
                 if (customDestroy)
                 {
                     customDestroy();
