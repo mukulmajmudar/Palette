@@ -665,9 +665,10 @@ define(
 
                 if ($el.length > 1)
                 {
+                    let _this = this;
                     $el.each(function(i, e)
                     {
-                        center($(e));
+                        _this.center($(e));
                     });
                     return;
                 }
