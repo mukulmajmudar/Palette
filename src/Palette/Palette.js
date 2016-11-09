@@ -92,11 +92,7 @@ define(
                     .off('attached.Palette')
                     .on('attached.Palette', function(event)
                     {
-                        if (event.target && event.target ===
-                            event.currentTarget)
-                        {
-                            view.attached = true;
-                        }
+                        view.attached = true;
                     });
             }
             return view.attached;
