@@ -58,6 +58,12 @@ define(
             // Otherwise assume setItems() will be called with
             // all the data that will be shown in the grid; do nothing here
         },
+        
+
+        onOrientationChange: function()
+        {
+            this.adjustItems();
+        },
 
 
         setItems: function(items)

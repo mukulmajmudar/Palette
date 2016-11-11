@@ -195,6 +195,12 @@ define(
             {
                 view.stopListening();
                 view.attached = false;
+                if (view._pltOnOrientnChange)
+                {
+                    window.removeEventListener('orientationchange',
+                                               view._pltOnOrientnChange);
+                    view._pltOnOrientnChange = null;
+                }
                 if (customDestroy)
                 {
                     customDestroy();
@@ -293,6 +299,21 @@ define(
             if (_.isFunction(view.onShown))
             {
                 _this.whenShown(view, view.onShown.bind(view));
+            }
+
+            // If onOrientationChange method declared, bind orientationchange
+            // event
+            if (_.isFunction(view.onOrientationChange))
+            {
+                view._pltOnOrientnChange = function()
+                {
+                    if (_this.isAttached(view))
+                    {
+                        view.onOrientationChange();
+                    }
+                };
+                window.addEventListener('orientationchange',
+                                        view._pltOnOrientnChange);
             }
 
             // Wait till all templates, style sheets, and static data is loaded
