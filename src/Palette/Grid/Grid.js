@@ -180,10 +180,12 @@ define(
 
                 var $el0, spacing, margin;
 
-                // If only one column, just add bottom margin
+                // If only one column, just add bottom margin and hide
+                // stretch element
                 if (numColumns === 1)
                 {
                     elements.css('margin-bottom', _this.singleColBottomMargin);
+                    _this.$('.plt-gridStretch').remove();
                     return;
                 }
 
