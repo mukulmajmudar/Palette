@@ -383,10 +383,27 @@ define(
                 });
             });
 
+            function setHeight()
+            {
+                // Find actual height of the grid
+                var height = _.chain($items.not('.invisible'))
+                    .map(function(item)
+                    {
+                        var $item = $(item);
+                        return $item.position().top + Palette.getActualHeight($item);
+                    })
+                    .max();
+
+                // Set height manually because spaces and adjustments add a lot of
+                // padding
+                _this.$('.plt-grid').css('height', height);
+            };
+
             // Find first spacing item
             var $spacingItems = _this.$('.plt-gridItem.invisible');
             if ($spacingItems.length === 0)
             {
+                setHeight();
                 return;
             }
             var $firstSpaceItem = $($spacingItems[0]);
@@ -417,18 +434,7 @@ define(
                 _this.adjustForVarHeights();
             }
 
-            // Find actual height of the grid
-            var height = _.chain($nonSpaceItems)
-                .map(function(item)
-                {
-                    var $item = $(item);
-                    return $item.position().top + Palette.getActualHeight($item);
-                })
-                .max();
-
-            // Set height manually because spaces and adjustments add a lot of
-            // padding
-            _this.$('.plt-grid').css('height', height);
+            setHeight();
         }
     });
 
