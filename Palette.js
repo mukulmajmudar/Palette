@@ -360,7 +360,7 @@ define(
         {
             // Add element attached flag if not there (e.g. if a view is created
             // from an element on the page before mutation observer was started)
-            if (view.attached === undefined)
+            if (!view.attached)
             {
                 view.attached = $.contains(document, view.el);
 
