@@ -174,7 +174,7 @@ define(
         },
 
 
-        render: function(view)
+        render: function(view, args)
         {
             var _this = this;
 
@@ -324,7 +324,7 @@ define(
                         view.staticDataLoaded = true;
 
                     // Render view
-                    return $.when(view.render()).then(function()
+                    return $.when(view.render(args)).then(function()
                     {
                         view.rendered = true;
                         if (view.showRenderSpinner)
