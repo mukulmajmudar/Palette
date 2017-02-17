@@ -1061,7 +1061,7 @@ define(
 
             if (cond())
             {
-                return;
+                return Promise.resolve();
             }
             return this.setTimeout(this.waitForCondition.bind(
                 this, cond, interval, timeout, ++count), interval);
