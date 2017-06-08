@@ -752,20 +752,13 @@ define(
 
         setTimeout: function(fn, ms)
         {
-            var d = new $.Deferred();
-
-            setTimeout(function()
+            return new Promise((resolve, reject) =>
             {
-                $.when(fn()).done(function()
+                setTimeout(() =>
                 {
-                    d.resolve.apply(d, arguments);
-                }).fail(function()
-                {
-                    d.reject.apply(d, arguments);
-                });
-            }, ms);
-
-            return d.promise();
+                    Promise.resolve(fn()).then(resolve, reject);
+                }, ms);
+            });
         },
 
 
@@ -827,31 +820,20 @@ define(
                 cssRules = 'rules';
             }
 
+            let promise = new Promise((resolve, reject) =>
+            {
+                $(link).on(
+                {
+                    load: resolve,
+                    error: reject
+                });
+            });
+
             // Insert the link node into the DOM and start loading the style 
             // sheet
-            head.appendChild(link);  
+            head.appendChild(link);
 
-            return $.when(this.waitForCondition(
-                function()
-                {
-                    try
-                    {
-                        // Check whether the style sheet has successfully loaded
-                        if (link[sheet] && link[sheet][cssRules].length) 
-                        { 
-                            return true;
-                        }
-                    }
-                    catch (e)
-                    {
-                        return false;
-                    }
-                }, 10, 20000))
-                .fail(function()
-                {
-                    // Timed out, so remove link element from head
-                    head.removeChild(link);
-                });
+            return promise;
         },
 
 
