@@ -320,6 +320,10 @@ define(
         {
             var _this = this;
             var $items = _this.$('.plt-gridItem');
+            if ($items.length === 0)
+            {
+                return;
+            }
 
             // Assemble 2D array of items; coordinate = (row, column)
             var items2D = [];
